@@ -31,11 +31,15 @@
             components = new System.ComponentModel.Container();
             folderBrowserDialog1 = new FolderBrowserDialog();
             splitContainer1 = new SplitContainer();
+            button2 = new Button();
             label1 = new Label();
             txtOssPath = new TextBox();
             btnStart = new Button();
             button1 = new Button();
             textBox1 = new TextBox();
+            splitContainer2 = new SplitContainer();
+            label2 = new Label();
+            progressBar1 = new ProgressBar();
             listLog = new ListBox();
             timer1 = new System.Windows.Forms.Timer(components);
             notifyIcon1 = new NotifyIcon(components);
@@ -47,6 +51,10 @@
             splitContainer1.Panel1.SuspendLayout();
             splitContainer1.Panel2.SuspendLayout();
             splitContainer1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)splitContainer2).BeginInit();
+            splitContainer2.Panel1.SuspendLayout();
+            splitContainer2.Panel2.SuspendLayout();
+            splitContainer2.SuspendLayout();
             info.SuspendLayout();
             SuspendLayout();
             // 
@@ -59,6 +67,7 @@
             // 
             // splitContainer1.Panel1
             // 
+            splitContainer1.Panel1.Controls.Add(button2);
             splitContainer1.Panel1.Controls.Add(label1);
             splitContainer1.Panel1.Controls.Add(txtOssPath);
             splitContainer1.Panel1.Controls.Add(btnStart);
@@ -68,10 +77,21 @@
             // 
             // splitContainer1.Panel2
             // 
+            splitContainer1.Panel2.Controls.Add(splitContainer2);
             splitContainer1.Panel2.Controls.Add(listLog);
-            splitContainer1.Size = new Size(1706, 766);
+            splitContainer1.Size = new Size(1942, 766);
             splitContainer1.SplitterDistance = 130;
             splitContainer1.TabIndex = 0;
+            // 
+            // button2
+            // 
+            button2.Location = new Point(1716, 26);
+            button2.Name = "button2";
+            button2.Size = new Size(150, 70);
+            button2.TabIndex = 5;
+            button2.Text = "停止";
+            button2.UseVisualStyleBackColor = true;
+            button2.Click += button2_Click;
             // 
             // label1
             // 
@@ -120,13 +140,49 @@
             textBox1.Size = new Size(524, 70);
             textBox1.TabIndex = 0;
             // 
+            // splitContainer2
+            // 
+            splitContainer2.Dock = DockStyle.Fill;
+            splitContainer2.Location = new Point(0, 562);
+            splitContainer2.Name = "splitContainer2";
+            // 
+            // splitContainer2.Panel1
+            // 
+            splitContainer2.Panel1.Controls.Add(label2);
+            // 
+            // splitContainer2.Panel2
+            // 
+            splitContainer2.Panel2.Controls.Add(progressBar1);
+            splitContainer2.Size = new Size(1942, 70);
+            splitContainer2.SplitterDistance = 820;
+            splitContainer2.TabIndex = 1;
+            // 
+            // label2
+            // 
+            label2.AutoSize = true;
+            label2.Dock = DockStyle.Bottom;
+            label2.Location = new Point(0, 39);
+            label2.Name = "label2";
+            label2.Size = new Size(82, 31);
+            label2.TabIndex = 0;
+            label2.Text = "label2";
+            label2.TextAlign = ContentAlignment.TopCenter;
+            // 
+            // progressBar1
+            // 
+            progressBar1.Dock = DockStyle.Fill;
+            progressBar1.Location = new Point(0, 0);
+            progressBar1.Name = "progressBar1";
+            progressBar1.Size = new Size(1118, 70);
+            progressBar1.TabIndex = 0;
+            // 
             // listLog
             // 
-            listLog.Dock = DockStyle.Fill;
+            listLog.Dock = DockStyle.Top;
             listLog.FormattingEnabled = true;
             listLog.Location = new Point(0, 0);
             listLog.Name = "listLog";
-            listLog.Size = new Size(1706, 632);
+            listLog.Size = new Size(1942, 562);
             listLog.TabIndex = 0;
             // 
             // notifyIcon1
@@ -166,7 +222,7 @@
             // 
             AutoScaleDimensions = new SizeF(14F, 31F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1706, 766);
+            ClientSize = new Size(1942, 766);
             Controls.Add(splitContainer1);
             Name = "MainFrm";
             Text = "同步助手";
@@ -177,6 +233,11 @@
             splitContainer1.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)splitContainer1).EndInit();
             splitContainer1.ResumeLayout(false);
+            splitContainer2.Panel1.ResumeLayout(false);
+            splitContainer2.Panel1.PerformLayout();
+            splitContainer2.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)splitContainer2).EndInit();
+            splitContainer2.ResumeLayout(false);
             info.ResumeLayout(false);
             ResumeLayout(false);
         }
@@ -197,5 +258,9 @@
         private Label label1;
         private TextBox txtOssPath;
         private ToolTip toolTip1;
+        private SplitContainer splitContainer2;
+        private Label label2;
+        private ProgressBar progressBar1;
+        private Button button2;
     }
 }

@@ -1,4 +1,5 @@
 using System.Configuration;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
@@ -7,14 +8,17 @@ using System.Windows.Forms;
 namespace sync
 {
     public partial class MainFrm : Form
-    {   
-        FileSystemWatcher watcher = new FileSystemWatcher();
+    {
+        FileSystemWatcher watcher ;
         OssHelper ossHelper;
         private HashSet<string> uploadedFilesMd5;
-        private const string DataFilePath = "data.json";
+        private readonly string DataFilePath = DateTime.Now.ToString("yyyy-MM-dd")+ "_data.json";
         string filter = ConfigurationManager.AppSettings["filter"];
         string bucketName = ConfigurationManager.AppSettings["bucketName"];
         bool start = false;
+        int uploadCount = 0;
+        int dupCount = 0;
+        int totalCount = 0;
 
         private ContextMenuStrip contextMenu;
         private ToolStripMenuItem restoreMenuItem;
@@ -23,7 +27,10 @@ namespace sync
         public MainFrm()
         {
             InitializeComponent();
-          
+
+            this.button2.Enabled=false;
+            this.label2.Text="";
+
             this.timer1.Interval = 60 * 60 * 60;
             this.timer1.Tick +=OnAutoCheck;
             this.timer1.Start();
@@ -43,27 +50,40 @@ namespace sync
             notifyIcon1.ContextMenuStrip = contextMenu;
 
             restoreMenuItem.Click += RestoreMenuItem_Click;
-;
             exitMenuItem.Click += ExitMenuItem_Click;
- 
+
 
 
         }
 
-        private void OnAutoCheck(object? sender, EventArgs e)
+        private async void OnAutoCheck(object? sender, EventArgs e)
         {
+
             AddLog("自动检查已开始");
-            FindAndUpdateLoad(this.textBox1.Text).Wait();
+            if (!start)
+            {
+                AddLog("同步未启动");
+            }
+           await  AyscFindAndUpdateLoad(this.textBox1.Text);
             SaveUploadedFilesMd5();
             AddLog("自动检查已结束");
 
         }
 
-        private void btnStart_Click(object sender, EventArgs e)
+        private async void btnStart_Click(object sender, EventArgs e)
         {
+            if (string.IsNullOrEmpty(this.textBox1.Text)||string.IsNullOrEmpty(this.txtOssPath.Text))
+            {
+                MessageBox.Show("上传路径或者oss路径为空");
+                return;
+            }
             AddLog("启动成功");
+            this.btnStart.Enabled=false;
             this.btnStart.Text="同步中..";
-            FindAndUpdateLoad(this.textBox1.Text).Wait();
+            this.button2.Enabled=true;
+            this.txtOssPath.Enabled=false;
+
+          await  AyscFindAndUpdateLoad(this.textBox1.Text);
 
         }
 
@@ -88,7 +108,7 @@ namespace sync
 
         private void OnChanged(object sender, FileSystemEventArgs e)
         {
-           
+
             AddLog("发现新文件：" + e.FullPath);
             for (int i = 0; i < 10; i++)
             {
@@ -96,19 +116,20 @@ namespace sync
                 if (fileInfo.Exists)
                 {
                     break;
-
                 }
                 Thread.Sleep(500);
-            
+
             }
             string[] extArr = getExtArr();
-            var matchArr= extArr.Where(x => e.FullPath.EndsWith(x.Replace("*",""))).ToArray();
+            var matchArr = extArr.Where(x => e.FullPath.EndsWith(x.Replace("*", ""))).ToArray();
             if (matchArr.Length==0)
             {
                 AddLog("文件类型不符合");
                 return;
             }
-             UploadFile(e.FullPath);
+            totalCount++;
+            setProgress(uploadCount, dupCount, totalCount);
+            UploadFile(e.FullPath);
         }
 
         private async Task AyscFindAndUpdateLoad(string folderPath)
@@ -119,7 +140,6 @@ namespace sync
             }
             start = true;
             await FindAndUpdateLoad(folderPath);
-            start = false;
 
         }
 
@@ -138,7 +158,8 @@ namespace sync
                 AddLog("文件列表为空");
                 return;
             }
-
+            totalCount=fileList.Length;
+            setProgress(uploadCount,dupCount, totalCount);
             AddLog($"发现{fileList.Length}个文件");
             foreach (string file in fileList)
             {
@@ -197,13 +218,15 @@ namespace sync
         // 上传文件
         public void UploadFile(string filePath)
         {
-            if (IsFileUploaded(filePath))
-            {
-                AddLog($"File '{filePath}' has already been uploaded.");
-                return;
-            }
+            
             try
             {
+                if (IsFileUploaded(filePath))
+                {
+                    AddLog($"File '{filePath}' has already been uploaded.");
+                    dupCount++;
+                    return;
+                }
                 // 模拟文件上传过程
                 AddLog($"Uploading file '{filePath}'...");
                 var fileName = new FileInfo(filePath).FullName;
@@ -212,10 +235,15 @@ namespace sync
                 string fileMd5 = CalculateMd5(filePath);
                 uploadedFilesMd5.Add(fileMd5);
                 AddLog($"{filePath} File uploaded {result}.");
+                uploadCount++;
             }
             catch (Exception ex)
             {
                 AddLog("上传异常：" + ex.Message);
+            }
+            finally
+            {
+                setProgress(uploadCount,dupCount, totalCount);
             }
         }
 
@@ -287,6 +315,66 @@ namespace sync
         private void ExitMenuItem_Click(object sender, EventArgs e)
         {
             exit();
+        }
+
+        private void setProgress(int progress,int dupCount, int totalCount)
+        {
+            var percent = 0;
+            if (totalCount>0)
+            {
+                  percent = (dupCount+progress)*100/totalCount;
+                setProgressbar(percent);
+            }
+            var info = $"总数：{totalCount}，已上传:{uploadCount} , 重复数量：{dupCount}，进度：{percent}%";
+            setProgressInfo(info);
+        }
+
+
+
+        private void setProgressInfo(string info )
+        {
+            if (label2.InvokeRequired)
+            {
+                // 使用委托和Invoke方法在正确的线程上调用
+                label2.Invoke(new Action<string>(setProgressInfo), info);
+            }
+            else
+            {
+                // 在当前线程上，直接更新进度条
+                this.label2.Text =info;
+            }
+        }
+        private void setProgressbar(int value)
+        {
+            if (value>100)
+            {
+                value=100;
+            }
+
+            if (progressBar1.InvokeRequired)
+            {
+                // 使用委托和Invoke方法在正确的线程上调用
+                progressBar1.Invoke(new Action<int>(setProgressbar), value);
+            }
+            else
+            {
+                // 在当前线程上，直接更新进度条
+                progressBar1.Value = value;
+            }
+        }
+        private void button2_Click(object sender, EventArgs e)
+        {
+            watcher.EnableRaisingEvents = false;
+            this.button2.Enabled = false;
+            this.btnStart.Enabled=true;
+            this.btnStart.Text="开始同步";
+            this.txtOssPath.Enabled=true;
+            start=false;
+            totalCount=0;
+            dupCount=0;
+            uploadCount=0;
+            setProgress(uploadCount, dupCount, totalCount);
+            
         }
     }
 }
