@@ -64,7 +64,7 @@ namespace sync
             {
                 AddLog("同步未启动");
             }
-           await  AyscFindAndUpdateLoad(this.textBox1.Text);
+            await FindAndUpdateLoad(this.textBox1.Text);
             SaveUploadedFilesMd5();
             AddLog("自动检查已结束");
 
@@ -82,9 +82,9 @@ namespace sync
             this.btnStart.Text="同步中..";
             this.button2.Enabled=true;
             this.txtOssPath.Enabled=false;
+            start=true;
 
-          await  AyscFindAndUpdateLoad(this.textBox1.Text);
-
+            await FindAndUpdateLoad(this.textBox1.Text);
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -106,10 +106,15 @@ namespace sync
             }
         }
 
-        private void OnChanged(object sender, FileSystemEventArgs e)
+        private async void OnChanged(object sender, FileSystemEventArgs e)
         {
-
+           
             AddLog("发现新文件：" + e.FullPath);
+            if (!start)
+            {
+                AddLog("服务未启动" );
+                return;
+            }
             for (int i = 0; i < 10; i++)
             {
                 var fileInfo = new FileInfo(e.FullPath);
@@ -118,7 +123,6 @@ namespace sync
                     break;
                 }
                 Thread.Sleep(500);
-
             }
             string[] extArr = getExtArr();
             var matchArr = extArr.Where(x => e.FullPath.EndsWith(x.Replace("*", ""))).ToArray();
@@ -129,20 +133,10 @@ namespace sync
             }
             totalCount++;
             setProgress(uploadCount, dupCount, totalCount);
-            UploadFile(e.FullPath);
+            await UploadFile(e.FullPath);
         }
 
-        private async Task AyscFindAndUpdateLoad(string folderPath)
-        {
-            if (start)
-            {
-                return;
-            }
-            start = true;
-            await FindAndUpdateLoad(folderPath);
-
-        }
-
+         
 
 
         private async Task FindAndUpdateLoad(string folderPath)
@@ -161,9 +155,30 @@ namespace sync
             totalCount=fileList.Length;
             setProgress(uploadCount,dupCount, totalCount);
             AddLog($"发现{fileList.Length}个文件");
+            var semaphore = new SemaphoreSlim(5); // 信号量
+            var tasks = new List<Task>();
             foreach (string file in fileList)
             {
-                UploadFile(file);
+                if (!start)
+                {
+                    AddLog("服务已停止");
+                    return;
+                }
+                await semaphore.WaitAsync(); // 等待信号量
+
+                tasks.Add(Task.Run(async () =>
+                {
+                    try
+                    {
+                       await  UploadFile(file);
+                    }
+                    finally
+                    {
+                        semaphore.Release(); // 释放信号量
+                    }
+                }));
+                await Task.WhenAll(tasks); // 等待所有任务完成
+
             }
         }
 
@@ -216,21 +231,25 @@ namespace sync
         }
 
         // 上传文件
-        public void UploadFile(string filePath)
+        public Task UploadFile(string filePath)
         {
-            
             try
             {
                 if (IsFileUploaded(filePath))
                 {
                     AddLog($"File '{filePath}' has already been uploaded.");
                     dupCount++;
-                    return;
+                    return Task.CompletedTask;
                 }
                 // 模拟文件上传过程
                 AddLog($"Uploading file '{filePath}'...");
-                var fileName = new FileInfo(filePath).FullName;
-                string result = ossHelper.UploadFile(filePath, this.txtOssPath.Text+fileName);
+                var fileName = new FileInfo(filePath).Name;
+               var ossPath= txtOssPath.Text.Replace($"oss://{bucketName}/", "");
+                if (!ossPath.EndsWith("/"))
+                {
+                    ossPath += "/";
+                }
+                string result = ossHelper.UploadFile(filePath, ossPath+fileName);
                 // 上传成功后，将文件的 MD5 值添加到已上传集合中
                 string fileMd5 = CalculateMd5(filePath);
                 uploadedFilesMd5.Add(fileMd5);
@@ -245,6 +264,8 @@ namespace sync
             {
                 setProgress(uploadCount,dupCount, totalCount);
             }
+
+            return Task.CompletedTask;
         }
 
         // 加载已上传文件的 MD5 值
@@ -374,7 +395,8 @@ namespace sync
             dupCount=0;
             uploadCount=0;
             setProgress(uploadCount, dupCount, totalCount);
-            
+
+
         }
     }
 }
